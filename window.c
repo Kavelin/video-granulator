@@ -3,8 +3,12 @@
 #include <stdlib.h>
 #include <SDL2/SDL.h>
 
-void cleanup_window(SDL_Texture *tex, SDL_Renderer *renderer, SDL_Window *win) {
-    SDL_DestroyTexture(tex);
+void cleanup_window(SDL_Texture **textures, int texture_count, SDL_Renderer *renderer, SDL_Window *win) {
+    if (textures != NULL) {
+        for (int i = 0; i< texture_count; i++) {
+            SDL_DestroyTexture(textures[i]);
+        }
+    }
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(win);
     SDL_Quit();

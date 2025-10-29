@@ -1,11 +1,8 @@
-// main.c
-// Simple video "granulator" / glitch player using FFmpeg + SDL2.
-// Decodes the whole video into memory (RGB24) then plays random grains.
+// Video granulator using ffmpeg and SDL
+
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
 #include <time.h>
 
 #include <SDL2/SDL.h>
@@ -27,16 +24,27 @@ int main(int argc, char **argv) {
     int frame_count, width, height;
     double fps;
 
+    const int GRAIN_FRAMES = 5;
+    const int SPRAY = 0;
+    const int OVERLAY = 1;
+    const int STEP = 1;
+
     if (buffer(filename, &frames, &frame_count, &width, &height, &fps) != 0) {
         fprintf(stderr, "Failed to buffer video frames.\n");
         return 2;
     }
+    
+    if (GRAIN_FRAMES > frame_count) {
+        fprintf(stderr, "Grain frame is longer than video!\n");
+        cleanup_frames(frames, frame_count);
+        return 5;
+    }
 
-    // Initialize SDL
+
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
         fprintf(stderr, "SDL_Init error: %s\n", SDL_GetError());
         cleanup_frames(frames, frame_count);
-        return 14;
+        return 3;
     }
 
     SDL_Window *win;
@@ -44,70 +52,72 @@ int main(int argc, char **argv) {
     if (create_window_and_renderer("Video Granulator", width, height, &win, &renderer) != 0) {
         fprintf(stderr, "Failed to create window and renderer.\n");
         cleanup_frames(frames, frame_count);
-        return 15;
+        return 4;
     }
-
-    SDL_Texture *tex = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, width, height);
-    if (!tex) {
-        fprintf(stderr, "SDL_CreateTexture error: %s\n", SDL_GetError());
-        SDL_DestroyRenderer(renderer);
-        SDL_DestroyWindow(win);
-        SDL_Quit();
-        cleanup_frames(frames, frame_count);
-        return 17;
-    }
-
 
     
-    const int GRAIN_FRAMES = 8; // length of each grain (frames)
-    //const int SPRAY = 20;
-    const int RANDOM_SEED = (int)time(NULL);
-    srand(RANDOM_SEED);
+    
 
     int quit = 0;
     SDL_Event ev;
-    const Uint32 frame_delay_ms = (Uint32)(1000.0 / fps + 0.5);
 
-    while (!quit) {
-        // choose a random start index such that we have GRAIN_FRAMES contiguous frames
-        int max_start = frame_count - GRAIN_FRAMES;
-        if (max_start <= 0) { // if video shorter than grain size, just play sequentially
-            // play sequentially once
-            for (int i = 0; i < frame_count && !quit; ++i) {
-                // handle events
-                while (SDL_PollEvent(&ev)) {
-                    if (ev.type == SDL_QUIT) quit = 1;
-                }
-                SDL_UpdateTexture(tex, NULL, frames[i].pixels, frames[i].linesize);
-                SDL_RenderClear(renderer);
-                SDL_RenderCopy(renderer, tex, NULL, NULL);
-                SDL_RenderPresent(renderer);
-                SDL_Delay(frame_delay_ms);
+    SDL_Texture **textures = (SDL_Texture **)malloc(OVERLAY * sizeof(SDL_Texture *));
+    if (!textures) {
+        fprintf(stderr, "Failed to allocate mem for textures\n");
+        cleanup_frames(frames, frame_count);
+        cleanup_window(NULL, 0, renderer, win);
+        return 1;
+    }
+    for (int i = 0; i < OVERLAY; i++) {
+        textures[i] = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, width, height);
+        if (!textures[i]) {
+            fprintf(stderr, "Failed to create texture %d: %s\n", i, SDL_GetError());
+            for (int j = 0; j < i; j++) {
+                SDL_DestroyTexture(textures[j]);
             }
+            free(textures);
+            cleanup_frames(frames, frame_count);
+            cleanup_window(NULL, 0, renderer, win);
+            return 1;
         }
+        SDL_SetTextureBlendMode(textures[i], SDL_BLENDMODE_ADD);
+    }
 
-        int start = rand() % (max_start + 1);
+    srand((int)time(NULL));
+    int start = 0;
+    while (!quit) {
 
+        start += (GRAIN_FRAMES * STEP) % frame_count;
+
+        
         for (int g = 0; g < GRAIN_FRAMES && !quit; ++g) {
-            int idx = start + g;
-            // event handling each frame
+            int index = (start + g) % frame_count;
+
             while (SDL_PollEvent(&ev)) {
                 if (ev.type == SDL_QUIT) quit = 1;
             }
-
-            // update texture with frame
-            SDL_UpdateTexture(tex, NULL, frames[idx].pixels, frames[idx].linesize);
             SDL_RenderClear(renderer);
-            SDL_RenderCopy(renderer, tex, NULL, NULL);
+            Uint8 alpha = (Uint8) (255 / OVERLAY);
+            for (int i = 0; i < OVERLAY; i++) {
+                int curSpray = SPRAY > 0 ? rand() % SPRAY * 2 - SPRAY : 0;
+                int curFrame = (index + i + curSpray + frame_count) % frame_count;
+                SDL_SetTextureAlphaMod(textures[i], alpha);
+                SDL_UpdateTexture(textures[i], 
+                    NULL, 
+                    frames[curFrame].pixels, 
+                    frames[curFrame].linesize
+                );
+                SDL_RenderCopy(renderer, textures[i], NULL, NULL);
+            }
             SDL_RenderPresent(renderer);
 
-            SDL_Delay(frame_delay_ms);
+            SDL_Delay((Uint32)(1000.0 / fps));
         }
 
     }
 
     // cleanup
-    cleanup_window(tex, renderer, win);
+    cleanup_window(textures, OVERLAY, renderer, win);
     cleanup_frames(frames, frame_count);
     fprintf(stderr, "Exited cleanly.\n");
     return 0;
