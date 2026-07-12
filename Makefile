@@ -8,7 +8,7 @@ BUILD_DIR := build
 SOURCES := main.c buffer.c window.c
 OBJECTS := $(addprefix $(BUILD_DIR)/, $(SOURCES:.c=.o))
 
-WASM_BUILD_DIR := web/build
+WASM_BUILD_DIR := build
 WASM_TARGET := $(WASM_BUILD_DIR)/vidgrains.html
 
 PKG_LIBS := $(shell pkg-config --libs sdl2 libavformat libavcodec libswscale libavutil)
@@ -33,7 +33,7 @@ $(BUILD_DIR)/%.o: %.c
 .PHONY: wasm
 wasm:
 	@mkdir -p $(WASM_BUILD_DIR)
-	$(EMCC) $(WASM_SOURCES) $(EMCFLAGS) --shell-file web/shell.html -o $(WASM_TARGET)
+	$(EMCC) $(WASM_SOURCES) $(EMCFLAGS) --shell-file shell.html -o $(WASM_TARGET)
 
 .PHONY: clean
 clean:
