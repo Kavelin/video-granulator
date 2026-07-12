@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Video Granulator</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --panel: rgba(13, 20, 39, 0.88);
+      --text: #e8edf7;
+      --muted: #90a0c0;
+      --accent: #7cf0c8;
+      --border: rgba(124, 240, 200, 0.2);
+    }
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      font-family: system-ui, sans-serif;
+      background: radial-gradient(circle at top, #17203d, var(--bg) 56%);
+      color: var(--text);
+    }
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(12px);
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(2rem, 4vw, 3.5rem);
+    }
+    p {
+      margin: 0 0 16px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    label {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.04);
+      cursor: pointer;
+    }
+    input[type="file"] {
+      color: var(--muted);
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      margin-top: 20px;
+      border-radius: 16px;
+      background: #000;
+    }
+    #status {
+      margin-top: 12px;
+      color: var(--accent);
+      font-size: 0.95rem;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="panel">
+      <h1>Video Granulator</h1>
+      <p>Upload a video, write it into MEMFS, and hand it to the wasm decoder.</p>
+      <label>
+        <span>Choose video</span>
+        <input type="file" id="video-upload" accept="video/*" disabled />
+      </label>
+      <div id="status">Loading wasm module...</div>
+      <canvas id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+    </section>
+  </main>
+
+  <script>
+    var Module = {
+      canvas: document.getElementById('canvas'),
+      onRuntimeInitialized() {
+        const upload = document.getElementById('video-upload');
+        const status = document.getElementById('status');
+        upload.disabled = false;
+        status.textContent = 'Wasm ready. Pick a video.';
+
+        upload.addEventListener('change', async (event) => {
+          const file = event.target.files && event.target.files[0];
+          if (!file) {
+            return;
+          }
+
+          status.textContent = `Loading ${file.name}...`;
+          const arrayBuffer = await file.arrayBuffer();
+          const dataView = new Uint8Array(arrayBuffer);
+          const FS = Module.FS;
+          FS.mkdirTree('/tmp');
+          FS.writeFile('/tmp/input.mp4', dataView);
+
+          status.textContent = 'Decoding and rendering...';
+          Module.ccall('video_granulator_run', 'number', ['string'], ['/tmp/input.mp4']);
+          status.textContent = 'Playback started.';
+        });
+      }
+    };
+  </script>
+  <script src="build/vidgrains.js"></script>
+</body>
+</html>

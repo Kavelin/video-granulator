@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 
 
 #include <libavformat/avformat.h>
@@ -195,10 +196,22 @@ int buffer(char* filename, FrameRGB **frames, int *frame_count, int *width, int 
         }
 
         uint8_t *p = av_malloc(rgb_bufsize);
+        if (!p) {
+            fprintf(stderr, "OOM allocating frame buffer\n");
+            cleanup_frames(*frames, *frame_count);
+            av_frame_free(&frame);
+            av_frame_free(&rgb_frame);
+            av_free(rgb_buffer);
+            av_packet_free(&pkt);
+            sws_freeContext(sws_ctx);
+            avcodec_free_context(&codec_ctx);
+            avformat_close_input(&fmt_ctx);
+            return 11;
+        }
         memcpy(p, rgb_frame->data[0], rgb_bufsize);
         (*frames)[*frame_count].pixels = p;
         (*frames)[*frame_count].linesize = rgb_frame->linesize[0];
-        frame_count++;
+        (*frame_count)++;
     }
 
     // free ffmpeg decode temps
@@ -210,7 +223,7 @@ int buffer(char* filename, FrameRGB **frames, int *frame_count, int *width, int 
     avcodec_free_context(&codec_ctx);
     avformat_close_input(&fmt_ctx);
 
-    if (frame_count == 0) {
+    if (*frame_count == 0) {
         fprintf(stderr, "No frames decoded.\n");
         cleanup_frames(*frames, *frame_count);
         return 13;
