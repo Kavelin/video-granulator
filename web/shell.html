@@ -4,35 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Video Granulator</title>
-  <style>
-    html, body {
-      margin: 0;
-      min-height: 100%;
-      font-family: system-ui, sans-serif;
-      background: #0b1020;
-      color: #e8edf7;
-    }
-    body {
-      display: grid;
-      place-items: center;
-      padding: 24px;
-    }
-    .shell {
-      width: min(1100px, 100%);
-    }
-    .toolbar {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      margin-bottom: 16px;
-    }
-    canvas {
-      width: 100%;
-      height: auto;
-      border-radius: 16px;
-      background: #000;
-    }
-  </style>
 </head>
 <body>
   <div class="shell">
@@ -42,32 +13,12 @@
     </div>
     <canvas id="canvas" oncontextmenu="event.preventDefault()"></canvas>
   </div>
+  <script src="../app.js"></script>
   <script>
     var Module = {
       canvas: document.getElementById('canvas'),
       onRuntimeInitialized() {
-        const upload = document.getElementById('video-upload');
-        const status = document.getElementById('status');
-        upload.disabled = false;
-        status.textContent = 'Wasm ready. Pick a video.';
-
-        upload.addEventListener('change', async (event) => {
-          const file = event.target.files && event.target.files[0];
-          if (!file) {
-            return;
-          }
-
-          status.textContent = `Loading ${file.name}...`;
-          const arrayBuffer = await file.arrayBuffer();
-          const dataView = new Uint8Array(arrayBuffer);
-          const FS = Module.FS;
-          FS.mkdirTree('/tmp');
-          FS.writeFile('/tmp/input.mp4', dataView);
-
-          status.textContent = 'Decoding and rendering...';
-          Module.ccall('video_granulator_run', 'number', ['string'], ['/tmp/input.mp4']);
-          status.textContent = 'Playback started.';
-        });
+        window.videoGranulatorApp(Module);
       }
     };
   </script>

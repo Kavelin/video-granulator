@@ -1,5 +1,5 @@
 #ifndef WINDOW_H
-#define WINDOW_h
+#define WINDOW_H
 
 void cleanup_window(SDL_Texture **textures, int texture_count, SDL_Renderer *renderer, SDL_Window *win);
 

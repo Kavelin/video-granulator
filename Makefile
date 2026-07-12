@@ -18,10 +18,9 @@ CFLAGS := -Wall -Wextra -g $(PKG_CFLAGS)
 
 EMCC ?= emcc
 EMCFLAGS := -Wall -Wextra -O2 -sUSE_SDL=2 -sFORCE_FILESYSTEM=1 -sINITIAL_MEMORY=64MB -sALLOW_MEMORY_GROWTH=1 \
-	-sEXPORTED_RUNTIME_METHODS=['FS','ccall','cwrap'] \
-	-sEXPORTED_FUNCTIONS=['_main','_video_granulator_init','_video_granulator_run','_video_granulator_shutdown']
-WASM_CFLAGS := $(shell pkg-config --cflags sdl2 libavformat libavcodec libswscale libavutil)
-WASM_LIBS := $(shell pkg-config --libs sdl2 libavformat libavcodec libswscale libavutil)
+	-sEXPORTED_RUNTIME_METHODS=['FS','ccall','cwrap','HEAPU8'] \
+	-sEXPORTED_FUNCTIONS=['_prepare_frame_buffers','_get_frame_buffer_pointer','_set_frame_count','_video_granulator_run','_video_granulator_shutdown','_set_granulator_spray','_set_granulator_step','_set_granulator_grain_frames','_set_granulator_overlay']
+WASM_SOURCES := main.c window.c
 
 $(TARGET): $(OBJECTS)
 	@mkdir -p $(BUILD_DIR)
@@ -34,7 +33,7 @@ $(BUILD_DIR)/%.o: %.c
 .PHONY: wasm
 wasm:
 	@mkdir -p $(WASM_BUILD_DIR)
-	$(EMCC) $(SOURCES) $(WASM_CFLAGS) $(EMCFLAGS) $(WASM_LIBS) --shell-file web/shell.html -o $(WASM_TARGET)
+	$(EMCC) $(WASM_SOURCES) $(EMCFLAGS) --shell-file web/shell.html -o $(WASM_TARGET)
 
 .PHONY: clean
 clean:
